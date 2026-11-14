@@ -1,0 +1,50 @@
+{
+  "version": 1,
+  "blogBaseUrl": "https://epaperwala11.blogspot.com",
+  "feedPath": "/feeds/posts/default?alt=json",
+  "timeZone": "Asia/Kolkata",
+  "selectors": {
+    "item": ".ep-resource-item",
+    "title": ".ep-card-title",
+    "subtitle": ".ep-card-sub",
+    "code": ".ep-card-avatar",
+    "link": "a.ep-access-btn",
+    "categoryAttr": "data-category",
+    "postBody": ".post-body, .entry-content, article"
+  },
+  "placeholderLinks": ["YOUR_LINK_HERE", "#", ""],
+  "offPrefix": "OFF",
+  "maxRedirects": 8,
+  "rules": [
+    {
+      "name": "Google Drive",
+      "hosts": ["drive.google.com", "docs.google.com", "drive.usercontent.google.com"],
+      "strategy": "GOOGLE_DRIVE"
+    },
+    {
+      "name": "DevUploads",
+      "hosts": ["devuploads.com"],
+      "strategy": "BROWSER_ASSISTED",
+      "deadMarkers": ["File Not Found", "file you were looking for could not be found"],
+      "fileNameSelector": "input[name=fname]",
+      "sizePattern": "\\(([0-9.,]+\\s*[KMG]B)\\)",
+      "autoClickSelectors": ["input[name=method_free]"],
+      "hideSelectors": [".dl-media", ".dl-report", "section[aria-labelledby=dl-about-title]", "input[name=method_premium]"],
+      "browserHosts": ["devuploads.com", "challenges.cloudflare.com", "hcaptcha.com", "newassets.hcaptcha.com"]
+    },
+    {
+      "name": "zDrive",
+      "hosts": ["zdrive.to", "zincdrive.com"],
+      "strategy": "DIRECT",
+      "deadMarkers": ["404 - Page Not Found"]
+    }
+  ],
+  "blockedHosts": [
+    "adsboosters.xyz", "cleverwebserver.com", "googlesyndication.com", "doubleclick.net",
+    "googleadservices.com", "google-analytics.com", "googletagmanager.com", "amazon-adsystem.com",
+    "analytics.tiktok.com", "snap.licdn.com", "js-agent.newrelic.com", "bam.nr-data.net",
+    "cloudflareinsights.com", "adsterra.com", "propellerads.com", "popads.net", "popcash.net",
+    "onclickads.net", "hilltopads.net", "exoclick.com", "monetag.com", "a-ads.com",
+    "highperformanceformat.com", "profitablecpmrate.com", "effectivegatecpm.com"
+  ]
+}

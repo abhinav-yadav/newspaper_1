@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- A folded newspaper. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp" android:viewportWidth="108" android:viewportHeight="108">
+    <path android:fillColor="#FFFBF8F3" android:pathData="M32,34h38a4,4 0,0 1,4 4v32a6,6 0,0 0,6 -6V44h-2v20a2,2 0,0 1,-4 0V38a6,6 0,0 0,-6 -6H32a4,4 0,0 0,-4 4v34a6,6 0,0 0,6 6h44v-2H34a4,4 0,0 1,-4 -4V36a2,2 0,0 1,2 -2z"/>
+    <path android:fillColor="#FFFBF8F3" android:pathData="M36,40h14v12H36z M54,40h14v3H54z M54,46h14v3H54z M36,56h32v3H36z M36,62h32v3H36z"/>
+</vector>
