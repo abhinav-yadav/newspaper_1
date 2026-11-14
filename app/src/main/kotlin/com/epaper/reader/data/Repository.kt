@@ -94,4 +94,12 @@ class PaperRepository(
     }
 
     suspend fun clearHistory() = library.clearHistory()
+
+    suspend fun setAutoSkip(paperId: String, skip: Boolean) {
+        val cur = library.get(paperId) ?: LibraryEntity(paperId)
+        library.upsert(cur.copy(autoSkip = skip))
+    }
+
+    suspend fun recentPapers(editions: Int) = papers.recent(editions)
+    suspend fun library(paperId: String) = library.get(paperId)
 }

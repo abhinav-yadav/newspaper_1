@@ -16,6 +16,10 @@ data class AppSettings(
     val fitPage: Boolean = false,
     val keepScreenOn: Boolean = true,
     val autoSync: Boolean = true,
+    /** Download new papers without being asked. */
+    val autoDownload: Boolean = true,
+    /** Publications the user paused for automatic downloads. */
+    val excludedTitles: Set<String> = emptySet(),
 )
 
 /** Tiny SharedPreferences-backed settings store; values are exposed as a StateFlow. */
@@ -34,6 +38,8 @@ class SettingsStore(context: Context) {
             .putBoolean("fitPage", next.fitPage)
             .putBoolean("keepScreenOn", next.keepScreenOn)
             .putBoolean("autoSync", next.autoSync)
+            .putBoolean("autoDownload", next.autoDownload)
+            .putStringSet("excludedTitles", next.excludedTitles)
             .apply()
         _state.value = next
     }
@@ -48,6 +54,8 @@ class SettingsStore(context: Context) {
             fitPage = prefs.getBoolean("fitPage", d.fitPage),
             keepScreenOn = prefs.getBoolean("keepScreenOn", d.keepScreenOn),
             autoSync = prefs.getBoolean("autoSync", d.autoSync),
+            autoDownload = prefs.getBoolean("autoDownload", d.autoDownload),
+            excludedTitles = prefs.getStringSet("excludedTitles", null)?.toSet() ?: d.excludedTitles,
         )
     }
 

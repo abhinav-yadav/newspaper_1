@@ -8,6 +8,8 @@ import android.os.Handler
 import android.os.Looper
 import android.os.Message
 import android.webkit.CookieManager
+import android.webkit.JsPromptResult
+import android.webkit.JsResult
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
@@ -31,10 +33,12 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.foundation.layout.Row
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -124,6 +128,9 @@ fun AssistedBrowserScreen(
     http: OkHttpClient,
     onCaptured: (CapturedDownload) -> Unit,
     onClose: () -> Unit,
+    /** Batch mode ("Fetch all"): progress label such as "2 of 5" and a way to skip this paper. */
+    queueLabel: String? = null,
+    onSkip: (() -> Unit)? = null,
 ) {
     val rule = remember(startUrl) { config.ruleFor(startUrl) }
     val policy = remember(rule) { BrowserPolicy(config, rule) }
@@ -134,6 +141,8 @@ fun AssistedBrowserScreen(
     var blocked by remember { mutableIntStateOf(0) }
     var captured by remember { mutableStateOf(false) }
     val main = remember { Handler(Looper.getMainLooper()) }
+    var slow by remember { mutableStateOf(false) }
+    LaunchedEffect(startUrl) { kotlinx.coroutines.delay(30_000); slow = true }
 
     fun capture(url: String, view: WebView?) {
         if (captured) return
@@ -175,11 +184,13 @@ fun AssistedBrowserScreen(
                     title = {
                         Column {
                             Text(title, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.titleMedium)
-                            subtitle?.let { Text(it, style = MaterialTheme.typography.labelMedium) }
+                            val sub = listOfNotNull(queueLabel, subtitle).joinToString(" · ")
+                            if (sub.isNotEmpty()) Text(sub, style = MaterialTheme.typography.labelMedium)
                         }
                     },
                     navigationIcon = { IconButton(onClick = onClose) { Icon(Icons.Filled.Close, "Close") } },
                     actions = {
+                        onSkip?.let { TextButton(onClick = it) { Text("Skip") } }
                         IconButton(onClick = { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(startUrl))) }) {
                             Icon(Icons.Filled.OpenInBrowser, "Open in external browser")
                         }
@@ -190,9 +201,12 @@ fun AssistedBrowserScreen(
                     Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                         Icon(Icons.Filled.Shield, null, Modifier.padding(end = 8.dp))
                         Text(
-                            if (captured) "Got it — opening the paper…"
-                            else "The file host asks for a quick security check and a short wait. Ads and pop-ups are blocked" +
-                                if (blocked > 0) " ($blocked so far)." else ".",
+                            when {
+                                captured -> "Got it — saving the paper…"
+                                slow -> "Still waiting on the file host. If it shows a checkbox, tap it; the rest is automatic."
+                                else -> "Keep this screen open: the file host runs a security check and a short countdown, " +
+                                    "then the paper is saved automatically. Ads and pop-ups blocked" + if (blocked > 0) " ($blocked)." else "."
+                            },
                             style = MaterialTheme.typography.bodySmall,
                         )
                     }
@@ -245,6 +259,20 @@ fun AssistedBrowserScreen(
 
                     webChromeClient = object : WebChromeClient() {
                         override fun onProgressChanged(view: WebView, newProgress: Int) { progress = newProgress }
+
+                        // Page-raised alert/confirm/prompt/"leave page?" dialogs are swallowed, never shown.
+                        override fun onJsAlert(view: WebView, url: String?, message: String?, result: JsResult): Boolean {
+                            result.confirm(); main.post { blocked++ }; return true
+                        }
+                        override fun onJsConfirm(view: WebView, url: String?, message: String?, result: JsResult): Boolean {
+                            result.cancel(); main.post { blocked++ }; return true
+                        }
+                        override fun onJsPrompt(view: WebView, url: String?, message: String?, defaultValue: String?, result: JsPromptResult): Boolean {
+                            result.cancel(); main.post { blocked++ }; return true
+                        }
+                        override fun onJsBeforeUnload(view: WebView, url: String?, message: String?, result: JsResult): Boolean {
+                            result.confirm(); return true
+                        }
 
                         /**
                          * The host opens an ad tab alongside the download step. Some pages refuse to continue if

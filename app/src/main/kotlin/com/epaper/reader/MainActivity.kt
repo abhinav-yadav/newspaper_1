@@ -6,6 +6,9 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
@@ -16,7 +19,9 @@ import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Explore
 import androidx.compose.material.icons.filled.Newspaper
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationRail
@@ -31,8 +36,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
@@ -97,6 +105,8 @@ fun App(container: AppContainer, autoRefresh: Boolean = true) {
         val papers by vm.papers.collectAsState()
         val refresh by vm.refresh.collectAsState()
         val resolving by vm.resolving.collectAsState()
+        val pending by vm.pendingFetch.collectAsState()
+        val fetch by vm.fetch.collectAsState()
 
         fun openExternal(url: String) = context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
 
@@ -105,6 +115,10 @@ fun App(container: AppContainer, autoRefresh: Boolean = true) {
                 when (e) {
                     is UiEvent.OpenReader -> nav.navigate("reader/${e.paperId}")
                     is UiEvent.OpenBrowser -> nav.navigate("browser/${e.paperId}?url=${enc(e.url)}&sub=${enc(e.subtitle ?: "")}")
+                    UiEvent.FetchFinished -> {
+                        if (nav.currentDestination?.route == "fetch") nav.popBackStack()
+                        nav.goTab(Tab.DOWNLOADS)
+                    }
                     is UiEvent.Message -> {
                         val r = snackbar.showSnackbar(e.text, actionLabel = if (e.postUrl != null) "Open post" else null,
                             withDismissAction = true, duration = SnackbarDuration.Long)
@@ -123,7 +137,10 @@ fun App(container: AppContainer, autoRefresh: Boolean = true) {
             onDownload = { vm.open(it.id, openAfterDownload = false) },
             onDelete = { vm.deleteDownload(it.id) },
             onOriginal = { nav.navigate("browser/${it.id}?url=${enc(it.postUrl)}&sub=${enc("Original post")}") },
+            onToggleAuto = { vm.toggleAutoDownload(it.title) },
+            isAutoPaused = { it in settings.excludedTitles },
         )
+        val fetchAll = { vm.startFetchAll(); nav.navigate("fetch") }
 
         val backStack by nav.currentBackStackEntryAsState()
         val route = backStack?.destination?.route.orEmpty()
@@ -140,7 +157,8 @@ fun App(container: AppContainer, autoRefresh: Boolean = true) {
                     composable(Tab.HOME.route) {
                         HomeScreen(papers, refresh, resolving, actions, onRefresh = vm::refresh,
                             onSearch = { nav.navigate("discover?focus=true") { launchSingleTop = true } },
-                            onEdition = { d -> nav.navigate("discover?date=${d.toEpochDay()}") { launchSingleTop = true } })
+                            onEdition = { d -> nav.navigate("discover?date=${d.toEpochDay()}") { launchSingleTop = true } },
+                            pending = pending, onFetchAll = fetchAll)
                     }
                     composable(
                         "discover?date={date}&focus={focus}",
@@ -155,13 +173,36 @@ fun App(container: AppContainer, autoRefresh: Boolean = true) {
                     composable(Tab.DOWNLOADS.route) {
                         DownloadsScreen(papers, remember(papers) { vm.storageBytes() },
                             onOpen = { vm.open(it.id) }, onPause = { vm.pause(it.id) }, onResume = { if (it.download is com.epaper.reader.ui.DownloadUi.Failed) vm.open(it.id, false) else vm.resume(it.id) },
-                            onDelete = { vm.deleteDownload(it.id) })
+                            onDelete = { vm.deleteDownload(it.id) }, pending = pending, onFetchAll = fetchAll)
                     }
                     composable(Tab.LIBRARY.route) { LibraryScreen(papers, resolving, actions) }
                     composable(Tab.SETTINGS.route) {
                         SettingsScreen(settings, vm::updateSettings, remember(papers) { vm.storageBytes() }, container.config,
                             onDeleteAll = vm::deleteAllDownloads, onClearHistory = vm::clearHistory,
-                            onOpenSource = { openExternal(container.config.blogBaseUrl) })
+                            onOpenSource = { openExternal(container.config.blogBaseUrl) },
+                            publications = remember(papers) { papers.orEmpty().map { it.title }.distinct().sorted() })
+                    }
+                    composable("fetch") {
+                        val f = fetch
+                        if (f == null) {
+                            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
+                        } else if (f.url == null) {
+                            Column(Modifier.fillMaxSize().padding(32.dp), verticalArrangement = Arrangement.Center,
+                                horizontalAlignment = Alignment.CenterHorizontally) {
+                                CircularProgressIndicator()
+                                Text("Checking ${f.title} (${f.index + 1} of ${f.total})…", Modifier.padding(top = 16.dp))
+                                TextButton(onClick = { vm.stopFetch(); nav.popBackStack() }) { Text("Stop") }
+                            }
+                        } else key(f.paperId) {
+                            AssistedBrowserScreen(
+                                startUrl = f.url, title = f.title, subtitle = f.subtitle,
+                                config = container.config, http = container.http,
+                                onCaptured = { d -> vm.fetchCaptured(f.paperId, d) },
+                                onClose = { vm.stopFetch(); nav.popBackStack() },
+                                queueLabel = "${f.index + 1} of ${f.total}",
+                                onSkip = { vm.skipFetch() },
+                            )
+                        }
                     }
                     composable("reader/{id}") { entry ->
                         val id = entry.arguments?.getString("id").orEmpty()

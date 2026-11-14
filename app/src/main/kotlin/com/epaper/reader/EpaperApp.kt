@@ -10,6 +10,7 @@ import com.epaper.core.defaultHttpClient
 import com.epaper.reader.data.AppDatabase
 import com.epaper.reader.data.PaperRepository
 import com.epaper.reader.data.SettingsStore
+import com.epaper.reader.storage.AutoDownloader
 import com.epaper.reader.storage.DownloadController
 import com.epaper.reader.storage.PaperFiles
 import com.epaper.reader.sync.SyncWorker
@@ -35,6 +36,7 @@ class AppContainer(context: Context) {
     val resolver = LinkResolver(http, config)
     val repository = PaperRepository(db, DiscoveryService(http, config), resolver)
     val downloads = DownloadController(context, db.downloads(), files)
+    val autoDownloader = AutoDownloader(repository, downloads, db.downloads(), config)
 }
 
 class EpaperApp : Application(), Configuration.Provider {

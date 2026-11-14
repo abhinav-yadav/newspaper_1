@@ -93,6 +93,7 @@ private fun LazyGridScope.cards(list: List<PaperUi>, resolving: String?, actions
 fun HomeScreen(
     papers: List<PaperUi>?, refresh: RefreshState, resolving: String?, actions: CardActions,
     onRefresh: () -> Unit, onSearch: () -> Unit, onEdition: (LocalDate) -> Unit,
+    pending: List<PaperUi> = emptyList(), onFetchAll: () -> Unit = {},
 ) {
     PullToRefreshBox(isRefreshing = refresh.loading, onRefresh = onRefresh, modifier = Modifier.fillMaxSize()) {
         val all = papers.orEmpty()
@@ -136,6 +137,7 @@ fun HomeScreen(
                 full { EmptyState("No editions yet", refresh.error ?: "Pull down to check for today's papers.") }
                 return@LazyVerticalGrid
             }
+            if (pending.isNotEmpty()) full { FetchBanner(pending, onFetchAll, Modifier.padding(top = 12.dp)) }
             if (continueReading.isNotEmpty()) {
                 full { SectionHeader("Continue reading") }
                 full { TileRow(continueReading, actions) }
@@ -257,6 +259,7 @@ fun DiscoverScreen(
 fun DownloadsScreen(
     papers: List<PaperUi>?, storageBytes: Long, onOpen: (PaperUi) -> Unit,
     onPause: (PaperUi) -> Unit, onResume: (PaperUi) -> Unit, onDelete: (PaperUi) -> Unit,
+    pending: List<PaperUi> = emptyList(), onFetchAll: () -> Unit = {},
 ) {
     val list = papers.orEmpty().filter { it.download != DownloadUi.None }
     var confirm by remember { mutableStateOf<PaperUi?>(null) }
@@ -269,7 +272,8 @@ fun DownloadsScreen(
                     style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
-        if (list.isEmpty()) full { EmptyState("No downloads", "Papers you read are saved here for offline reading.") }
+        if (pending.isNotEmpty()) full { FetchBanner(pending, onFetchAll, Modifier.padding(top = 4.dp)) }
+        if (list.isEmpty() && pending.isEmpty()) full { EmptyState("No downloads", "New papers are saved here automatically for offline reading.") }
         items(list, key = { it.id }) { p ->
             Surface(shape = RoundedCornerShape(14.dp), color = MaterialTheme.colorScheme.surfaceContainerLow,
                 modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).clickable { onOpen(p) }) {
@@ -356,6 +360,7 @@ fun LibraryScreen(papers: List<PaperUi>?, resolving: String?, actions: CardActio
 fun SettingsScreen(
     settings: AppSettings, update: ((AppSettings) -> AppSettings) -> Unit, storageBytes: Long, config: ExtractionConfig,
     onDeleteAll: () -> Unit, onClearHistory: () -> Unit, onOpenSource: () -> Unit,
+    publications: List<String> = emptyList(),
 ) {
     var confirmDelete by remember { mutableStateOf(false) }
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp)) {
@@ -388,6 +393,17 @@ fun SettingsScreen(
         item { Toggle("Fit whole page", "Otherwise pages fit the screen width", settings.fitPage) { v -> update { it.copy(fitPage = v) } } }
         item { Toggle("Dark pages", "Invert page colours for night reading", settings.readerDark) { v -> update { it.copy(readerDark = v) } } }
         item { Toggle("Keep screen on while reading", null, settings.keepScreenOn) { v -> update { it.copy(keepScreenOn = v) } } }
+        item { Group("Auto-download") }
+        item {
+            Toggle("Download new papers automatically", "The two newest editions are kept on this device. Papers you stop or delete are not fetched again.",
+                settings.autoDownload) { v -> update { it.copy(autoDownload = v) } }
+        }
+        if (settings.autoDownload) items(publications) { title ->
+            val on = title !in settings.excludedTitles
+            Toggle(title, if (on) null else "Paused", on) { v ->
+                update { it.copy(excludedTitles = if (v) it.excludedTitles - title else it.excludedTitles + title) }
+            }
+        }
         item { Group("Updates") }
         item { Toggle("Check for new editions in the background", "Every few hours, on any network", settings.autoSync) { v -> update { it.copy(autoSync = v) } } }
         item { Group("Storage & privacy") }

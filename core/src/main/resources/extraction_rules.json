@@ -45,6 +45,11 @@
     "analytics.tiktok.com", "snap.licdn.com", "js-agent.newrelic.com", "bam.nr-data.net",
     "cloudflareinsights.com", "adsterra.com", "propellerads.com", "popads.net", "popcash.net",
     "onclickads.net", "hilltopads.net", "exoclick.com", "monetag.com", "a-ads.com",
-    "highperformanceformat.com", "profitablecpmrate.com", "effectivegatecpm.com"
+    "highperformanceformat.com", "profitablecpmrate.com", "effectivegatecpm.com",
+    "taboola.com", "outbrain.com", "mnet-ad.net", "media.net", "adnxs.com", "pubmatic.com", "rubiconproject.com",
+    "openx.net", "criteo.com", "criteo.net", "mgid.com", "revcontent.com", "adform.net", "smartadserver.com",
+    "taboolasyndication.com", "zedo.com", "yieldmo.com", "33across.com", "sharethrough.com", "inmobi.com",
+    "clickadu.com", "galaksion.com", "admaven.com", "ad-maven.com", "pushwoosh.com", "onesignal.com",
+    "trafficjunky.net", "juicyads.com", "bidvertiser.com", "rtmark.net", "acint.net", "pubfuture.com"
   ]
 }

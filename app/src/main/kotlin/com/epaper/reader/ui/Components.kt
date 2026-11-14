@@ -119,6 +119,8 @@ data class CardActions(
     val onDownload: (PaperUi) -> Unit,
     val onDelete: (PaperUi) -> Unit,
     val onOriginal: (PaperUi) -> Unit,
+    val onToggleAuto: (PaperUi) -> Unit = {},
+    val isAutoPaused: (String) -> Boolean = { false },
 )
 
 @Composable
@@ -192,6 +194,10 @@ private fun CardMenu(paper: PaperUi, actions: CardActions) {
             }
             DropdownMenuItem({ Text(if (paper.favorite) "Unfavourite ${paper.title}" else "Favourite ${paper.title}") },
                 onClick = { open = false; actions.onFavorite(paper) })
+            DropdownMenuItem(
+                { Text(if (actions.isAutoPaused(paper.title)) "Resume auto-download of ${paper.title}" else "Pause auto-download of ${paper.title}") },
+                onClick = { open = false; actions.onToggleAuto(paper) },
+            )
             DropdownMenuItem({ Text("Open original post") }, onClick = { open = false; actions.onOriginal(paper) })
         }
     }
@@ -211,6 +217,25 @@ fun PaperTile(paper: PaperUi, onClick: () -> Unit) {
         if (paper.inProgressReading) {
             LinearProgressIndicator(progress = { (paper.lastPage + 1f) / paper.pageCount },
                 modifier = Modifier.fillMaxWidth().padding(top = 4.dp).height(3.dp).clip(RoundedCornerShape(2.dp)))
+        }
+    }
+}
+
+/** Shown while new papers wait on a file host that needs its check run on screen. */
+@Composable
+fun FetchBanner(pending: List<PaperUi>, onFetchAll: () -> Unit, modifier: Modifier = Modifier) {
+    if (pending.isEmpty()) return
+    Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.primaryContainer, modifier = modifier.fillMaxWidth()) {
+        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text("${pending.size} new ${if (pending.size == 1) "paper" else "papers"} to save",
+                    style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                Text(pending.map { it.code.ifEmpty { it.title } }.distinct().joinToString() +
+                    " · the file host runs a short check on screen, then everything saves by itself",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onPrimaryContainer)
+            }
+            Spacer(Modifier.width(12.dp))
+            androidx.compose.material3.Button(onClick = onFetchAll) { Text("Fetch all") }
         }
     }
 }

@@ -11,6 +11,8 @@ import androidx.room.Query
 import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.Upsert
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
 import kotlinx.coroutines.flow.Flow
 
 @Entity(tableName = "editions")
@@ -52,6 +54,8 @@ data class LibraryEntity(
     val lastOpenedAt: Long? = null,
     val lastPage: Int = 0,
     val pageCount: Int = 0,
+    /** The user stopped or deleted this download: automatic downloading must leave it alone. */
+    val autoSkip: Boolean = false,
 )
 
 /** A favourite publication (by title, e.g. "The H. Edition"), not a single issue. */
@@ -82,6 +86,7 @@ data class PaperRow(
     val lastOpenedAt: Long?,
     val lastPage: Int?,
     val pageCount: Int?,
+    val autoSkip: Boolean,
     val favorite: Boolean,
     val dlState: DownloadState?,
     val dlBytes: Long?,
@@ -96,6 +101,7 @@ interface PaperDao {
         """
         SELECT p.*, e.title AS editionTitle,
                l.bookmarked AS bookmarked, l.lastOpenedAt AS lastOpenedAt, l.lastPage AS lastPage, l.pageCount AS pageCount,
+               COALESCE(l.autoSkip, 0) AS autoSkip,
                (f.title IS NOT NULL) AS favorite,
                d.state AS dlState, d.downloadedBytes AS dlBytes, d.totalBytes AS dlTotal, d.filePath AS dlPath, d.error AS dlError
         FROM papers p
@@ -122,6 +128,10 @@ interface PaperDao {
 
     @Query("UPDATE papers SET removedReason = :reason WHERE id = :id")
     suspend fun setRemoved(id: String, reason: String?)
+
+    /** Papers of the [editions] newest editions, newest first. */
+    @Query("SELECT p.* FROM papers p WHERE p.editionId IN (SELECT id FROM editions ORDER BY publishedAt DESC LIMIT :editions) ORDER BY p.publishedAt DESC, p.position")
+    suspend fun recent(editions: Int): List<PaperEntity>
 
     @Query("SELECT COUNT(*) FROM editions")
     suspend fun editionCount(): Int
@@ -176,7 +186,7 @@ interface DownloadDao {
 
 @Database(
     entities = [EditionEntity::class, PaperEntity::class, LibraryEntity::class, FavoriteEntity::class, DownloadEntity::class],
-    version = 1,
+    version = 2,
     exportSchema = true,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -186,6 +196,12 @@ abstract class AppDatabase : RoomDatabase() {
 
     companion object {
         fun create(context: Context): AppDatabase =
-            Room.databaseBuilder(context, AppDatabase::class.java, "epaper.db").build()
+            Room.databaseBuilder(context, AppDatabase::class.java, "epaper.db").addMigrations(MIGRATION_1_2).build()
+
+        val MIGRATION_1_2 = object : Migration(1, 2) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE library ADD COLUMN autoSkip INTEGER NOT NULL DEFAULT 0")
+            }
+        }
     }
 }

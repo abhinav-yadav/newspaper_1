@@ -78,7 +78,7 @@ class PhoneScreenshotTest : ScreenshotBase() {
         compose.setContent { App(c, autoRefresh = false) }
         awaitText("Continue reading")
         shot("phone_1_home")
-        compose.onAllNodesWithText("Not uploaded yet").onFirst().assertExists()
+        awaitText("Fetch all")
         compose.onNodeWithText("Discover").performClick(); shot("phone_2_discover")
         compose.onNodeWithText("Downloads").performClick()
         awaitText("Saved · 18.4 MB")

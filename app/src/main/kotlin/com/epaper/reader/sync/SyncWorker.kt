@@ -12,10 +12,12 @@ import com.epaper.reader.EpaperApp
 import java.io.IOException
 import java.util.concurrent.TimeUnit
 
-/** Periodically pulls the feed so new editions are already there when the app opens. */
+/** Periodically pulls the feed and downloads new papers, so they are already there when the app opens. */
 class SyncWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
     override suspend fun doWork(): Result = try {
-        (applicationContext as EpaperApp).container.repository.refresh(limit = 15)
+        val c = (applicationContext as EpaperApp).container
+        c.repository.refresh(limit = 15)
+        c.autoDownloader.runBackground(c.settings.state.value)
         Result.success()
     } catch (e: IOException) {
         if (runAttemptCount < 3) Result.retry() else Result.failure()

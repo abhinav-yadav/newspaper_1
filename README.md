@@ -28,22 +28,33 @@ and editions you have read stay available offline.
 | Library | Continue reading · recently opened · bookmarks · favourite publications · reading history (Room, on the device only) |
 | UI | Bottom navigation on phones, navigation rail on tablets and foldables (≥600 dp) · adaptive card grid · light, dark and Material You themes |
 
-## The one thing that is not fully automatic
+## Automatic downloads
 
-The blog currently hosts every paper on **devuploads.com**. That host gates each file with a Cloudflare
-Turnstile / hCaptcha / ALTCHA check plus a countdown. This is a bot-protection access control, so the app
-deliberately does **not** try to solve or bypass it. Instead it:
+New papers are downloaded **without being asked**: every refresh (on launch, on pull-to-refresh and every 3 h
+in the background) queues the two newest editions. You stay in control:
 
-1. checks the link with one plain request (file still there? name and size),
-2. opens the host page in an in-app sandbox: ad and tracker scripts are blocked, pop-up "ad tabs" are
-   swallowed invisibly, clutter and premium upsells are hidden,
-3. lets the check run in the real WebView. Turnstile and ALTCHA usually pass without any tap,
-4. presses "Free Download" once it is enabled, captures the download with its cookies,
-   validates it is a real PDF, and opens it in the reader.
+* **Stop** a download (✕ in Downloads) or **delete** a saved paper: auto-download will not fetch it again.
+* **Pause / resume** a download in progress (HTTP Range resume).
+* **Pause a publication**: ⋮ → *Pause auto-download of …* on any card, or Settings → Auto-download.
+* Turn auto-download off entirely in Settings.
 
-In the usual case the user just watches a short countdown inside the app. If the host changes its flow,
-the sandbox still shows the page, so the user can finish the steps by hand, and the download is captured
-either way. Google Drive links (used by the blog in the past) open with no interaction at all.
+### The DevUploads limit, stated plainly
+
+Google Drive and direct-PDF links download fully in the background. DevUploads, where the blog currently
+puts every paper, does not allow that. Its guard script (`dl-guard.js`, deliberately obfuscated) requires a
+Cloudflare Turnstile / hCaptcha / proof-of-work check, and its countdown **pauses whenever the page is not on
+screen**. Solving the captcha or faking page visibility would be defeating an anti-automation control, and the
+app does not do that.
+
+So DevUploads papers come through **one tap per day**. When new ones arrive, Home and Downloads show
+*"N new papers to save · Fetch all"*. Fetch all walks through every pending paper in the in-app sandbox:
+
+* ads, trackers, pop-up tabs and page dialogs (`alert`/`confirm`) are blocked;
+* the download button is pressed for you;
+* each file is captured, checked to be a real PDF, and saved;
+* the run moves to the next paper on its own (*Skip* and *Stop* are available).
+
+You only keep the screen open, and tap the host's checkbox if it ever shows one.
 
 ## Build
 
@@ -71,8 +82,8 @@ App tests run on the JVM with Robolectric, so they need no emulator.
 
 ## Known limitations
 
-* **DevUploads files need the in-app check** (see above). Whether it passes silently depends on
-  Cloudflare's view of the device. Rarely, the user has to tap a checkbox.
+* **DevUploads papers need the on-screen "Fetch all" run** (see above). Whether its check passes without a
+  tap depends on Cloudflare's view of the device.
 * The DevUploads steps *after* the check (countdown, final file URL) could not be observed from the build
   environment, because the check does not load in a headless browser. Capture is therefore generic (WebView
   download events, `.pdf` navigations, HEAD-checked redirects) rather than tuned to an observed final URL.
